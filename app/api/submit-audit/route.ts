@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     console.log("Отправка данных в n8n webhook:", { url, email, source })
 
     // Отправляем запрос на webhook n8n
-    const response = await fetch("https://n8n.getsync.ru/webhook/seo-audit-webhook", {
+    const response = await fetch("https://n8n.aigeniy.com/webhook/seo-audit-webhook", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
