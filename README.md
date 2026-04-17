@@ -1,2 +1,0 @@
-# seo-auditor
-seo-auditor
