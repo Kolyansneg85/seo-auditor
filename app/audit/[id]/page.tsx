@@ -2,13 +2,17 @@ import { notFound } from "next/navigation"
 import { AuditReport } from "@/components/audit-report"
 import { UpsellCard } from "@/components/upsell-card"
 
-// Server component: читаем audit через RPC из Supabase
 async function fetchAudit(auditId: string, token: string) {
   const supabaseUrl = process.env.SUPABASE_URL
   const supabaseKey = process.env.SUPABASE_ANON_KEY
 
+  console.log("SUPABASE_URL:", supabaseUrl ? "SET" : "MISSING")
+  console.log("SUPABASE_ANON_KEY:", supabaseKey ? `SET (length: ${supabaseKey.length}, starts: ${supabaseKey.slice(0, 5)})` : "MISSING")
+  console.log("audit_id:", auditId)
+  console.log("token length:", token?.length)
+
   if (!supabaseUrl || !supabaseKey) {
-    console.error("Missing SUPABASE_URL or SUPABASE_ANON_KEY")
+    console.error("Missing env vars!")
     return null
   }
 
@@ -30,12 +34,14 @@ async function fetchAudit(auditId: string, token: string) {
       }
     )
 
-    if (!response.ok) {
-      console.error("Supabase RPC error:", response.status, await response.text())
-      return null
-    }
+    console.log("Supabase response status:", response.status)
+    const text = await response.text()
+    console.log("Supabase response body:", text.slice(0, 500))
 
-    const data = await response.json()
+    if (!response.ok) return null
+
+    const data = JSON.parse(text)
+    console.log("Parsed data length:", Array.isArray(data) ? data.length : "not array")
     return Array.isArray(data) && data.length > 0 ? data[0] : null
   } catch (err) {
     console.error("fetchAudit failed:", err)
@@ -43,7 +49,6 @@ async function fetchAudit(auditId: string, token: string) {
   }
 }
 
-// ✅ Правильная типизация для Next.js 15
 export default async function AuditPage({
   params,
   searchParams,
