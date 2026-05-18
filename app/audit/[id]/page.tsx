@@ -2,43 +2,57 @@ import { notFound } from "next/navigation"
 import { AuditReport } from "@/components/audit-report"
 import { UpsellCard } from "@/components/upsell-card"
 
-interface AuditPageProps {
-  params: Promise<{ id: string }>
-  searchParams: Promise<{ token?: string; paid?: string }>
-}
-
 // Server component: читаем audit через RPC из Supabase
 async function fetchAudit(auditId: string, token: string) {
-  const url = `${process.env.SUPABASE_URL}/rest/v1/rpc/get_audit_by_token`
-  
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: process.env.SUPABASE_ANON_KEY!,
-      Authorization: `Bearer ${process.env.SUPABASE_ANON_KEY!}`,
-    },
-    body: JSON.stringify({
-      p_audit_id: auditId,
-      p_token: token,
-    }),
-    // Не кэшируем — отчёт может обновиться (free → paid)
-    cache: "no-store",
-  })
+  const supabaseUrl = process.env.SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_ANON_KEY
 
-  if (!response.ok) return null
-  
-  const data = await response.json()
-  // RPC возвращает массив. Если пусто — не нашли.
-  return Array.isArray(data) && data.length > 0 ? data[0] : null
+  if (!supabaseUrl || !supabaseKey) {
+    console.error("Missing SUPABASE_URL or SUPABASE_ANON_KEY")
+    return null
+  }
+
+  try {
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/rpc/get_audit_by_token`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({
+          p_audit_id: auditId,
+          p_token: token,
+        }),
+        cache: "no-store",
+      }
+    )
+
+    if (!response.ok) {
+      console.error("Supabase RPC error:", response.status, await response.text())
+      return null
+    }
+
+    const data = await response.json()
+    return Array.isArray(data) && data.length > 0 ? data[0] : null
+  } catch (err) {
+    console.error("fetchAudit failed:", err)
+    return null
+  }
 }
 
+// ✅ Правильная типизация для Next.js 15
 export default async function AuditPage({
   params,
   searchParams,
-}: AuditPageProps) {
-  const { id } = await params
-  const { token } = await searchParams
+}: {
+  params: { id: string }
+  searchParams: { token?: string; paid?: string }
+}) {
+  const { id } = params
+  const { token } = searchParams
 
   if (!token) {
     notFound()
@@ -50,7 +64,6 @@ export default async function AuditPage({
     notFound()
   }
 
-  // expired audit
   if (audit.status === "expired") {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
@@ -70,7 +83,6 @@ export default async function AuditPage({
     )
   }
 
-  // processing — показать loading
   if (audit.status === "processing" || audit.status === "pending_payment") {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
@@ -81,22 +93,23 @@ export default async function AuditPage({
             Multi-model AI is analyzing your site. This page will update automatically.
           </p>
           <p className="text-sm text-muted-foreground">
-            You can safely close this page — we'll email you when it's ready.
+            You can safely close this page — we&apos;ll email you when it&apos;s ready.
           </p>
-          {/* Auto-refresh каждые 10 секунд */}
-          <meta httpEquiv="refresh" content="10" />
         </div>
       </div>
     )
   }
 
-  // completed — рендерим отчёт
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
         <header className="mb-12">
           <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-primary">
-            {audit.report_tier === "free" ? "Free Audit" : audit.report_tier === "enterprise_pro" ? "Enterprise Pro" : "Enterprise"}
+            {audit.report_tier === "free"
+              ? "Free Audit"
+              : audit.report_tier === "enterprise_pro"
+              ? "Enterprise Pro"
+              : "Enterprise"}
           </p>
           <h1 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
             SEO Audit Report
@@ -113,7 +126,6 @@ export default async function AuditPage({
 
         <AuditReport audit={audit} />
 
-        {/* Upsell только для free тира */}
         {audit.report_tier === "free" && (
           <div className="mt-16">
             <UpsellCard auditId={audit.id} email={audit.target_email} />
