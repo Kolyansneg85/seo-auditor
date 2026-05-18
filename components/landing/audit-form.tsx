@@ -14,14 +14,30 @@ interface AuditFormProps {
   formId?: string
 }
 
+/** Нормализует ввод пользователя в валидный URL.
+ *  "clapp.finance" → "https://clapp.finance"
+ *  "http://clapp.finance" → без изменений
+ */
+function normalizeUrl(input: string): string {
+  const trimmed = input.trim()
+  if (!trimmed) return trimmed
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return trimmed
+  }
+  return "https://" + trimmed
+}
+
 export function AuditForm({ className, formId }: AuditFormProps) {
-  const [url, setUrl] = useState("https://")
+  const [url, setUrl] = useState("")
   const [email, setEmail] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!url || url === "https://") {
+
+    const normalizedUrl = normalizeUrl(url)
+
+    if (!normalizedUrl) {
       toast({
         variant: "destructive",
         title: "URL is required",
@@ -29,23 +45,25 @@ export function AuditForm({ className, formId }: AuditFormProps) {
       })
       return
     }
+
     try {
-      new URL(url)
+      new URL(normalizedUrl)
     } catch {
       toast({
         variant: "destructive",
         title: "Invalid URL",
-        description: "Please enter a valid website URL (including https://).",
+        description: "Please enter a valid website URL, e.g. yourdomain.com",
       })
       return
     }
+
     setIsLoading(true)
     try {
       const response = await fetch("/api/submit-audit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          url,
+          url: normalizedUrl,
           email: email || undefined,
           source: "seo_audit_interface",
         }),
@@ -58,16 +76,14 @@ export function AuditForm({ className, formId }: AuditFormProps) {
       const data = await response.json()
 
       toast({
-        title: "Audit complete!",
+        title: "Audit started!",
         description: "Redirecting to your report...",
       })
 
       // Редирект на страницу отчёта
       if (data.magic_url) {
-        // magic_url приходит от n8n как https://audit.aigeniy.com/audit/{id}?token=...
         window.location.href = data.magic_url
       } else if (data.audit_id) {
-        // fallback если по какой-то причине magic_url не пришёл
         window.location.href = `/audit/${data.audit_id}`
       }
     } catch (err) {
@@ -95,16 +111,13 @@ export function AuditForm({ className, formId }: AuditFormProps) {
     >
       <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
         <Input
-          type="url"
+          type="text"
           required
-          placeholder="https://yourdomain.com"
+          placeholder="yourdomain.com"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          onFocus={(e) => {
-            if (e.target.value === "https://") e.target.select()
-          }}
           disabled={isLoading}
-          className="h-12 rounded-xl border-border/60 bg-background px-4 text-base shadow-sm placeholder:text-muted-foreground/60 focus-visible:border-primary/50 focus-visible:ring-4 focus-visible:ring-primary/15"
+          className="h-12 rounded-xl border-border/60 bg-background px-4 text-base shadow-sm placeholder:text-muted-foreground/60 focus-visible:border-primary/50 focus-visible:ring-4 focus-visible:ring-primary/20"
           aria-label="Website URL"
         />
         <Button
@@ -131,7 +144,7 @@ export function AuditForm({ className, formId }: AuditFormProps) {
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         disabled={isLoading}
-        className="h-12 rounded-xl border-border/60 bg-background px-4 text-base shadow-sm placeholder:text-muted-foreground/60 focus-visible:border-primary/50 focus-visible:ring-4 focus-visible:ring-primary/15"
+        className="h-12 rounded-xl border-border/60 bg-background px-4 text-base shadow-sm placeholder:text-muted-foreground/60 focus-visible:border-primary/50 focus-visible:ring-4 focus-visible:ring-primary/20"
         aria-label="Email address"
       />
       <p className="text-xs text-muted-foreground">
