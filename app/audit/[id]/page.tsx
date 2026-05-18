@@ -6,13 +6,18 @@ async function fetchAudit(auditId: string, token: string) {
   const supabaseUrl = process.env.SUPABASE_URL
   const supabaseKey = process.env.SUPABASE_ANON_KEY
 
-  console.log("SUPABASE_URL:", supabaseUrl ? "SET" : "MISSING")
-  console.log("SUPABASE_ANON_KEY:", supabaseKey ? `SET (length: ${supabaseKey.length}, starts: ${supabaseKey.slice(0, 5)})` : "MISSING")
-  console.log("audit_id:", auditId)
-  console.log("token length:", token?.length)
+  console.log("[fetchAudit] SUPABASE_URL:", supabaseUrl ? "SET" : "MISSING")
+  console.log(
+    "[fetchAudit] SUPABASE_ANON_KEY:",
+    supabaseKey
+      ? `SET (length: ${supabaseKey.length}, starts: ${supabaseKey.slice(0, 5)})`
+      : "MISSING"
+  )
+  console.log("[fetchAudit] audit_id:", auditId)
+  console.log("[fetchAudit] token length:", token?.length)
 
   if (!supabaseUrl || !supabaseKey) {
-    console.error("Missing env vars!")
+    console.error("[fetchAudit] Missing env vars!")
     return null
   }
 
@@ -34,17 +39,20 @@ async function fetchAudit(auditId: string, token: string) {
       }
     )
 
-    console.log("Supabase response status:", response.status)
+    console.log("[fetchAudit] Supabase response status:", response.status)
     const text = await response.text()
-    console.log("Supabase response body:", text.slice(0, 500))
+    console.log("[fetchAudit] Supabase response body:", text.slice(0, 500))
 
     if (!response.ok) return null
 
     const data = JSON.parse(text)
-    console.log("Parsed data length:", Array.isArray(data) ? data.length : "not array")
+    console.log(
+      "[fetchAudit] Parsed data length:",
+      Array.isArray(data) ? data.length : "not array"
+    )
     return Array.isArray(data) && data.length > 0 ? data[0] : null
   } catch (err) {
-    console.error("fetchAudit failed:", err)
+    console.error("[fetchAudit] Failed:", err)
     return null
   }
 }
@@ -53,19 +61,27 @@ export default async function AuditPage({
   params,
   searchParams,
 }: {
-  params: { id: string }
-  searchParams: { token?: string; paid?: string }
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ token?: string; paid?: string }>
 }) {
-  const { id } = params
-  const { token } = searchParams
+  const { id } = await params
+  const { token } = await searchParams
+
+  console.log("[AuditPage] id:", id)
+  console.log(
+    "[AuditPage] token:",
+    token ? `${token.slice(0, 10)}... (len: ${token.length})` : "MISSING"
+  )
 
   if (!token) {
+    console.error("[AuditPage] Token missing → notFound")
     notFound()
   }
 
   const audit = await fetchAudit(id, token)
 
   if (!audit) {
+    console.error("[AuditPage] Audit null → notFound")
     notFound()
   }
 
@@ -77,7 +93,7 @@ export default async function AuditPage({
           <p className="text-muted-foreground mb-6">
             This free audit was valid for 30 days and is no longer available.
           </p>
-          <a
+          
             href="/"
             className="inline-block rounded-xl bg-primary px-6 py-3 font-medium text-primary-foreground"
           >
@@ -119,7 +135,7 @@ export default async function AuditPage({
           <h1 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
             SEO Audit Report
           </h1>
-          <a
+          
             href={audit.target_url}
             target="_blank"
             rel="noopener noreferrer"
