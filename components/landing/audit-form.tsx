@@ -54,12 +54,22 @@ export function AuditForm({ className, formId }: AuditFormProps) {
         const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.error || `Server error: ${response.status}`)
       }
+
+      const data = await response.json()
+
       toast({
-        title: "Audit started",
-        description: email
-          ? `Results will be delivered to ${email} within a few minutes.`
-          : "Check your inbox — results will arrive within a few minutes.",
+        title: "Audit complete!",
+        description: "Redirecting to your report...",
       })
+
+      // Редирект на страницу отчёта
+      if (data.magic_url) {
+        // magic_url приходит от n8n как https://audit.aigeniy.com/audit/{id}?token=...
+        window.location.href = data.magic_url
+      } else if (data.audit_id) {
+        // fallback если по какой-то причине magic_url не пришёл
+        window.location.href = `/audit/${data.audit_id}`
+      }
     } catch (err) {
       console.error("Error:", err)
       toast({
