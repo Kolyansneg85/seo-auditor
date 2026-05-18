@@ -7,14 +7,9 @@ async function fetchAudit(auditId: string, token: string) {
   const supabaseKey = process.env.SUPABASE_ANON_KEY
 
   console.log("[fetchAudit] SUPABASE_URL:", supabaseUrl ? "SET" : "MISSING")
-  console.log(
-    "[fetchAudit] SUPABASE_ANON_KEY:",
-    supabaseKey
-      ? `SET (length: ${supabaseKey.length}, starts: ${supabaseKey.slice(0, 5)})`
-      : "MISSING"
-  )
+  console.log("[fetchAudit] SUPABASE_ANON_KEY:", supabaseKey ? `SET (len:${supabaseKey.length})` : "MISSING")
   console.log("[fetchAudit] audit_id:", auditId)
-  console.log("[fetchAudit] token length:", token?.length)
+  console.log("[fetchAudit] token len:", token?.length)
 
   if (!supabaseUrl || !supabaseKey) {
     console.error("[fetchAudit] Missing env vars!")
@@ -22,37 +17,28 @@ async function fetchAudit(auditId: string, token: string) {
   }
 
   try {
-    const response = await fetch(
-      `${supabaseUrl}/rest/v1/rpc/get_audit_by_token`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: supabaseKey,
-          Authorization: `Bearer ${supabaseKey}`,
-        },
-        body: JSON.stringify({
-          p_audit_id: auditId,
-          p_token: token,
-        }),
-        cache: "no-store",
-      }
-    )
+    const response = await fetch(`${supabaseUrl}/rest/v1/rpc/get_audit_by_token`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: supabaseKey,
+        Authorization: `Bearer ${supabaseKey}`,
+      },
+      body: JSON.stringify({ p_audit_id: auditId, p_token: token }),
+      cache: "no-store",
+    })
 
-    console.log("[fetchAudit] Supabase response status:", response.status)
+    console.log("[fetchAudit] status:", response.status)
     const text = await response.text()
-    console.log("[fetchAudit] Supabase response body:", text.slice(0, 500))
+    console.log("[fetchAudit] body:", text.slice(0, 300))
 
     if (!response.ok) return null
 
     const data = JSON.parse(text)
-    console.log(
-      "[fetchAudit] Parsed data length:",
-      Array.isArray(data) ? data.length : "not array"
-    )
+    console.log("[fetchAudit] parsed len:", Array.isArray(data) ? data.length : "not array")
     return Array.isArray(data) && data.length > 0 ? data[0] : null
   } catch (err) {
-    console.error("[fetchAudit] Failed:", err)
+    console.error("[fetchAudit] failed:", err)
     return null
   }
 }
@@ -68,20 +54,17 @@ export default async function AuditPage({
   const { token } = await searchParams
 
   console.log("[AuditPage] id:", id)
-  console.log(
-    "[AuditPage] token:",
-    token ? `${token.slice(0, 10)}... (len: ${token.length})` : "MISSING"
-  )
+  console.log("[AuditPage] token:", token ? `${token.slice(0, 10)}... (len:${token.length})` : "MISSING")
 
   if (!token) {
-    console.error("[AuditPage] Token missing → notFound")
+    console.error("[AuditPage] token missing → notFound")
     notFound()
   }
 
   const audit = await fetchAudit(id, token)
 
   if (!audit) {
-    console.error("[AuditPage] Audit null → notFound")
+    console.error("[AuditPage] audit null → notFound")
     notFound()
   }
 
@@ -90,15 +73,8 @@ export default async function AuditPage({
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
         <div className="max-w-md text-center">
           <h1 className="text-3xl font-bold mb-4">Report Expired</h1>
-          <p className="text-muted-foreground mb-6">
-            This free audit was valid for 30 days and is no longer available.
-          </p>
-          
-            href="/"
-            className="inline-block rounded-xl bg-primary px-6 py-3 font-medium text-primary-foreground"
-          >
-            Run a new audit
-          </a>
+          <p className="text-muted-foreground mb-6">This free audit was valid for 30 days and is no longer available.</p>
+          <a href="/" className="inline-block rounded-xl bg-primary px-6 py-3 font-medium text-primary-foreground">Run a new audit</a>
         </div>
       </div>
     )
@@ -110,39 +86,27 @@ export default async function AuditPage({
         <div className="max-w-md text-center">
           <div className="mb-6 inline-block animate-spin rounded-full border-4 border-primary border-t-transparent h-12 w-12" />
           <h1 className="text-2xl font-bold mb-3">Audit in progress</h1>
-          <p className="text-muted-foreground mb-4">
-            Multi-model AI is analyzing your site. This page will update automatically.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            You can safely close this page — we&apos;ll email you when it&apos;s ready.
-          </p>
+          <p className="text-muted-foreground mb-4">Multi-model AI is analyzing your site. This page will update automatically.</p>
+          <p className="text-sm text-muted-foreground">You can safely close this page — we&apos;ll email you when it&apos;s ready.</p>
         </div>
       </div>
     )
   }
 
+  const tierLabel =
+    audit.report_tier === "free"
+      ? "Free Audit"
+      : audit.report_tier === "enterprise_pro"
+      ? "Enterprise Pro"
+      : "Enterprise"
+
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
         <header className="mb-12">
-          <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-primary">
-            {audit.report_tier === "free"
-              ? "Free Audit"
-              : audit.report_tier === "enterprise_pro"
-              ? "Enterprise Pro"
-              : "Enterprise"}
-          </p>
-          <h1 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
-            SEO Audit Report
-          </h1>
-          
-            href={audit.target_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-3 inline-block text-muted-foreground hover:text-primary transition-colors"
-          >
-            {audit.target_url} →
-          </a>
+          <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-primary">{tierLabel}</p>
+          <h1 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">SEO Audit Report</h1>
+          <a href={audit.target_url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-muted-foreground hover:text-primary transition-colors">{audit.target_url} →</a>
         </header>
 
         <AuditReport audit={audit} />
